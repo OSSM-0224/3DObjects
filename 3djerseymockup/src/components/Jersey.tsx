@@ -290,15 +290,15 @@ export default function Jersey({
     const eased = easeOutCubic(introRef.current);
 
     if (!current.dragging) {
-      if (autoRotate) current.yaw += dt * 0.2 * motion;
+      if (autoRotate) current.yaw += dt * 0.3 * motion;
       current.yaw += current.velocity * dt;
       current.velocity = THREE.MathUtils.damp(current.velocity, 0, 2.2, dt);
     }
 
-    const bob = Math.sin(time * 0.9) * 0.12 * motion * eased;
-    const idlePitch = Math.sin(time * 0.42 + 0.8) * 0.038 * motion * eased;
-    const idleRoll = Math.sin(time * 0.55) * 0.085 * motion * eased;
-    const idleYaw = Math.sin(time * 0.31) * 0.06 * motion * eased;
+    const bob = Math.sin(time * 1.15) * 0.12 * motion * eased;
+    const idlePitch = Math.sin(time * 0.6 + 0.8) * 0.038 * motion * eased;
+    const idleRoll = Math.sin(time * 0.8) * 0.085 * motion * eased;
+    const idleYaw = Math.sin(time * 0.5) * 0.06 * motion * eased;
     const targetYaw = current.yaw + (1 - eased) * -0.9 + idleYaw;
     const targetPitch =
       current.pitch +
