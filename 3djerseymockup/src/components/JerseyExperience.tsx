@@ -3,17 +3,44 @@ import {
   useEffect,
   useRef,
   useState,
-  type KeyboardEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent,
 } from "react";
 import { useGLTF, useProgress } from "@react-three/drei";
 import JerseyScene from "./JerseyScene";
-import { DEFAULT_KIT, KITS, type Kit } from "../lib/kits";
+import { DEFAULT_KIT, KITS, type Kit, type KitId } from "../lib/kits";
 import { clamp, createSpinState } from "../lib/spin";
 
 type SpinDirection = "left" | "right" | "up" | "down";
 
 const KIT_COUNT = KITS.length.toString().padStart(2, "0");
+const SHARE_KIT_ID: KitId = "slhs";
+
+function getInitialKit(): Kit {
+  const requested = new URLSearchParams(window.location.search).get("kit");
+  return KITS.find((item) => item.id === requested) ?? DEFAULT_KIT;
+}
+
+function getCaptureKit(): Kit | null {
+  const requested = new URLSearchParams(window.location.search).get("capture");
+  return KITS.find((item) => item.id === requested) ?? null;
+}
+
+async function copyText(value: string) {
+  try {
+    await navigator.clipboard.writeText(value);
+    return;
+  } catch {
+    const input = document.createElement("textarea");
+    input.value = value;
+    input.style.position = "fixed";
+    input.style.opacity = "0";
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand("copy");
+    input.remove();
+  }
+}
 
 const ArrowIcon = () => (
   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
@@ -30,6 +57,18 @@ const SpinIcon = () => (
       strokeLinecap="round"
     />
     <path d="M12.6 2.2v3.2H9.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const ShareIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <path
+      d="M8 10.2V2.6m0 0L5.4 5.2M8 2.6l2.6 2.6M3 8.4v4.1c0 .5.4.9.9.9h8.2c.5 0 .9-.4.9-.9V8.4"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
@@ -86,8 +125,172 @@ function StageProgress({ name }: { name: string }) {
   );
 }
 
+function ShareModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    setCopied(false);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    const focusTimer = window.setTimeout(() => closeRef.current?.focus(), 40);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleEscape);
+      window.clearTimeout(focusTimer);
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  const origin = window.location.origin;
+  const shareUrl = `${origin}/share/slhs/`;
+  const posterUrl = `${origin}/status/slhs.jpg`;
+  const previewUrl = `${origin}/og/slhs.jpg`;
+
+  const handleCopy = async () => {
+    await copyText(shareUrl);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2200);
+  };
+
+  return (
+    <div
+      className="share-overlay"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="share-modal" role="dialog" aria-modal="true" aria-labelledby="share-title">
+        <button
+          ref={closeRef}
+          type="button"
+          className="share-close"
+          onClick={onClose}
+          aria-label="Close share panel"
+        >
+          <span aria-hidden="true">×</span>
+        </button>
+
+        <div className="share-copy">
+          <p className="share-eyebrow">WHATSAPP STATUS KIT / 03</p>
+          <h2 id="share-title">
+            SHARE <em>SLHS 24</em>
+          </h2>
+          <p className="share-lede">
+            Send the live 3D kit, or download a ready-to-post status image. The link opens a preview
+            page first, then the full interactive jersey.
+          </p>
+
+          <div className="share-link">
+            <span>SHARE LINK</span>
+            <div className="share-link-row">
+              <input
+                type="text"
+                readOnly
+                value={shareUrl}
+                aria-label="SLHS 24 share link"
+                onFocus={(event) => event.currentTarget.select()}
+              />
+              <button type="button" className="btn btn-primary share-copy-btn" onClick={handleCopy}>
+                {copied ? "COPIED ✓" : "COPY LINK"}
+              </button>
+            </div>
+          </div>
+
+          <div className="share-actions">
+            <a className="btn btn-ghost" href={posterUrl} download="SLHS-24-WhatsApp-Status.jpg">
+              DOWNLOAD POSTER <span aria-hidden="true">↓</span>
+            </a>
+            <a className="share-open" href="/share/slhs/" target="_blank" rel="noreferrer">
+              OPEN SHARE PAGE <span aria-hidden="true">↗</span>
+            </a>
+          </div>
+
+          <p className="share-note">
+            Status link previews depend on your WhatsApp version. The 1080 × 1920 poster always works
+            — post it directly from your gallery.
+          </p>
+        </div>
+
+        <div className="share-preview">
+          <span className="share-preview-label">WHATSAPP LINK PREVIEW</span>
+          <div className="wa-card">
+            <img src={previewUrl} alt="SLHS 24 link preview" width="1080" height="1080" />
+            <div className="wa-card-body">
+              <strong>SLHS 24 — St. Xavier&apos;s Edition</strong>
+              <p>
+                The St. Xavier&apos;s school kit in live 3D. Maroon marbled cloth, 50-year crest,
+                MHATRE 24.
+              </p>
+              <span>{window.location.host}</span>
+            </div>
+          </div>
+          <div className="share-preview-meta">
+            <span>OG IMAGE 1080 × 1080</span>
+            <span>POSTER 1080 × 1920</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CaptureExperience({ kit }: { kit: Kit }) {
+  const spin = useRef(createSpinState(kit.initialYaw));
+
+  useEffect(() => {
+    document.documentElement.classList.add("capture-mode");
+    document.title = `${kit.name} — capture`;
+
+    return () => {
+      document.documentElement.classList.remove("capture-mode");
+      delete document.documentElement.dataset.captureReady;
+    };
+  }, [kit.name]);
+
+  const handleLoaded = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        document.documentElement.dataset.captureReady = "1";
+      });
+    });
+  }, []);
+
+  return (
+    <div className="capture" aria-hidden="true">
+      <JerseyScene
+        kit={kit}
+        start
+        autoRotate={false}
+        spin={spin}
+        onLoaded={handleLoaded}
+        reducedMotion
+        capture
+      />
+    </div>
+  );
+}
+
 export default function JerseyExperience() {
-  const spin = useRef(createSpinState(DEFAULT_KIT.initialYaw));
+  const captureKit = getCaptureKit();
+  if (captureKit) return <CaptureExperience kit={captureKit} />;
+
+  return <Experience />;
+}
+
+function Experience() {
+  const [initialKit] = useState(getInitialKit);
+  const spin = useRef(createSpinState(initialKit.initialYaw));
   const stageRef = useRef<HTMLDivElement>(null);
   const lastPointer = useRef({ x: 0, y: 0 });
 
