@@ -57,7 +57,8 @@ float liveLateralN = clamp(
   0.0,
   1.0
 );
-float liveTwistN = -uLiveSpin * 0.045 * liveLagWeight(liveHeightN, liveLateralN);
+float liveTopMaskN = 1.0 - smoothstep(0.80, 0.93, liveHeightN);
+float liveTwistN = -uLiveSpin * 0.06 * liveLagWeight(liveHeightN, liveLateralN) * liveTopMaskN;
 vec3 liveSceneNormal = mat3(uLiveToScene) * objectNormal;
 liveSceneNormal.xz = liveRotate(liveSceneNormal.xz, liveTwistN);
 objectNormal = normalize(mat3(uLiveFromScene) * liveSceneNormal);
@@ -66,21 +67,22 @@ objectNormal = normalize(mat3(uLiveFromScene) * liveSceneNormal);
 const LIVE_VERTEX = /* glsl */ `
 vec3 liveScenePosition = (uLiveToScene * vec4(transformed, 1.0)).xyz;
 float liveHeightV = liveHeight(liveScenePosition);
+float liveTopMask = 1.0 - smoothstep(0.80, 0.93, liveHeightV);
 vec3 liveRadial = liveScenePosition - vec3(uLiveAxisPoint.x, liveScenePosition.y, uLiveAxisPoint.z);
 float liveLateralV = clamp(length(liveRadial.xz) / max(uLiveJerseyRadius, 0.0001), 0.0, 1.0);
-float liveTwistV = -uLiveSpin * 0.045 * liveLagWeight(liveHeightV, liveLateralV);
+float liveTwistV = -uLiveSpin * 0.06 * liveLagWeight(liveHeightV, liveLateralV) * liveTopMask;
 liveScenePosition.xz = uLiveAxisPoint.xz + liveRotate(liveRadial.xz, liveTwistV);
 
 vec3 liveSceneNormalV = normalize(mat3(uLiveToScene) * normal);
 float liveBreathe = sin(uLiveTime * 1.25 + liveHeightV * 2.2) * 0.5 + 0.5;
-liveScenePosition += liveSceneNormalV * (liveBreathe - 0.5) * 0.016 * uLiveSceneHeight * uLiveEnergy;
+liveScenePosition += liveSceneNormalV * (liveBreathe - 0.5) * 0.022 * uLiveSceneHeight * uLiveEnergy * liveTopMask;
 
 vec2 liveRadialDir = liveRadial.xz / max(length(liveRadial.xz), 0.0001);
 float liveRipple = sin(uLiveTime * 2.2 + liveHeightV * 6.0 + liveLateralV * 3.0);
-liveScenePosition.xz += liveRadialDir * liveRipple * 0.01 * uLiveSceneHeight * uLiveEnergy * pow(1.0 - liveHeightV, 2.0);
+liveScenePosition.xz += liveRadialDir * liveRipple * 0.014 * uLiveSceneHeight * uLiveEnergy * pow(1.0 - liveHeightV, 2.0);
 
-float liveSleeve = smoothstep(0.55, 0.95, liveLateralV) * smoothstep(0.45, 0.85, liveHeightV);
-liveScenePosition.y += sin(uLiveTime * 3.1 + liveLateralV * 6.0) * 0.015 * uLiveSceneHeight * uLiveEnergy * liveSleeve;
+float liveSleeve = smoothstep(0.5, 0.92, liveLateralV) * smoothstep(0.42, 0.82, liveHeightV);
+liveScenePosition.y += sin(uLiveTime * 3.1 + liveLateralV * 6.0) * 0.022 * uLiveSceneHeight * uLiveEnergy * liveSleeve * liveTopMask;
 
 transformed = (uLiveFromScene * vec4(liveScenePosition, 1.0)).xyz;
 `;
@@ -212,6 +214,12 @@ export default function Jersey({
           material.map.needsUpdate = true;
         }
 
+        // Collar band rigid rehta hai — breathing se black collar warp nahi hota.
+        if (material.name === "Collar Colour") {
+          material.needsUpdate = true;
+          continue;
+        }
+
         const uniforms = {
           uLiveTime: live.uLiveTime,
           uLiveEnergy: live.uLiveEnergy,
@@ -268,13 +276,18 @@ export default function Jersey({
       current.velocity = THREE.MathUtils.damp(current.velocity, 0, 2.2, dt);
     }
 
-    const bob = Math.sin(time * 0.9) * 0.035 * motion * eased;
-    const targetYaw = current.yaw + (1 - eased) * -0.9;
+    const bob = Math.sin(time * 0.9) * 0.05 * motion * eased;
+    const idlePitch = Math.sin(time * 0.42 + 0.8) * 0.012 * motion * eased;
+    const idleRoll = Math.sin(time * 0.55) * 0.03 * motion * eased;
+    const idleYaw = Math.sin(time * 0.31) * 0.025 * motion * eased;
+    const targetYaw = current.yaw + (1 - eased) * -0.9 + idleYaw;
     const targetPitch =
-      current.pitch + (1 - eased) * 0.5 + (reducedMotion ? 0 : current.pointerY * 0.045);
+      current.pitch +
+      (1 - eased) * 0.5 +
+      (reducedMotion ? 0 : current.pointerY * 0.06 + idlePitch);
     const targetRoll = reducedMotion
       ? 0
-      : current.pointerX * 0.022 + Math.sin(time * 0.55) * 0.012 * motion;
+      : current.pointerX * 0.035 + idleRoll;
     const targetScale = 0.92 + eased * 0.08;
 
     modelGroup.position.set(baseX, baseY + (1 - eased) * -1.35 + bob, 0);
@@ -294,7 +307,7 @@ export default function Jersey({
     const targetEnergy = reducedMotion
       ? 0
       : THREE.MathUtils.clamp(
-          0.22 + Math.abs(yawRate) * 0.08 + (current.dragging ? 0.35 : 0),
+          0.34 + Math.abs(yawRate) * 0.09 + (current.dragging ? 0.5 : 0),
           0,
           1,
         ) * eased;
@@ -308,14 +321,14 @@ export default function Jersey({
     const pivotGroup = pivot.current;
     if (pivotGroup) {
       const spring = swing.current;
-      const targetX = THREE.MathUtils.clamp(current.pointerY * 0.02, -0.06, 0.06);
+      const targetX = THREE.MathUtils.clamp(current.pointerY * 0.03, -0.08, 0.08);
       const targetZ = THREE.MathUtils.clamp(
-        -current.velocity * 0.008 - current.pointerX * 0.015,
-        -0.09,
-        0.09,
+        -current.velocity * 0.012 - current.pointerX * 0.02,
+        -0.12,
+        0.12,
       );
-      const stiffness = 36;
-      const damping = 6.8;
+      const stiffness = 30;
+      const damping = 5.4;
 
       spring.vx += (targetX - spring.x) * stiffness * dt;
       spring.vz += (targetZ - spring.z) * stiffness * dt;
