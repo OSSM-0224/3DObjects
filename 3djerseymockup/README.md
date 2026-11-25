@@ -51,8 +51,7 @@ Instead of baking every design into its own GLB, the showcase uses **one** `publ
 
 - `MainJersey` → `JerseyFabric` material receives the active design texture.
 - `EndSleeves` → `SleeveTrim` material receives the design's accent colour.
-- `CollarTrim` → solid material split out of the textured mesh, also receives the design's accent colour. Covers the full folded flap, not just the top ring.
-- `PlacketTrim` → centre-front strip split out of the textured mesh, receives the same accent colour.
+- The collar and front placket remain part of `MainJersey` and use the design texture — no solid accent colour.
 - `JerseyButtons` keeps its own solid material.
 
 Build the template, UV guide and demo designs (no Blender required):

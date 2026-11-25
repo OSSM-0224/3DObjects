@@ -3,7 +3,7 @@
  *
  * Source: public/models/jersey-yash24.glb (one mesh, three material primitives)
  * Output:
- *   public/models/jersey-template.glb        MainJersey + CollarTrim + PlacketTrim + EndSleeves + JerseyButtons
+ *   public/models/jersey-template.glb        MainJersey + EndSleeves + JerseyButtons
  *   public/templates/jersey-uv-guide.png     real UV islands over the design canvas
  *   public/designs/**                        demo WebP designs + thumbnails
  *   public/designs/manifest.json             runtime design data
@@ -194,94 +194,8 @@ async function main() {
     ? Buffer.from(fabricMaterial.getBaseColorTexture().getImage())
     : null;
 
-  // The collar and the front placket are part of the textured Main Design
-  // primitive, and their UVs land on dark patches of the artwork. Pull those
-  // triangles into solid-colour meshes so the runtime can match them to the
-  // sleeve accent. Selection is geometric, so it works on the one shared GLB
-  // for every design, with no Blender step.
-  const posAccessor = mainPrim.getAttribute("POSITION");
-  if (posAccessor) {
-    const point = [0, 0, 0];
-    let maxY = -Infinity;
-    for (let i = 0; i < posAccessor.getCount(); i++) {
-      posAccessor.getElement(i, point);
-      maxY = Math.max(maxY, point[1]);
-    }
-
-    // The neck ring ends at maxY - 0.15, but the visible folded collar flap
-    // reaches down to about maxY - 0.25 and out to radius 0.5.
-    const collarY = maxY - 0.25;
-    const collarRadius = 0.5;
-
-    // The placket is the narrow centre-front strip below the collar. z > 0.15
-    // keeps the back seam untouched; y <= collarY avoids doubling up with the
-    // collar flap at the top.
-    const placketBottomY = 0.2;
-    const placketHalfWidth = 0.08;
-    const placketFrontZ = 0.15;
-    const originalIndices = mainPrim.getIndices();
-
-    if (originalIndices) {
-      const fabricIndices = [];
-      const collarIndices = [];
-      const placketIndices = [];
-      // getArray() gives independent scalar values; getElement(index, target)
-      // returns the shared target array, which would alias all three indices.
-      const originalIndexArray = originalIndices.getArray();
-      for (let f = 0; f < originalIndices.getCount(); f += 3) {
-        const ids = [originalIndexArray[f], originalIndexArray[f + 1], originalIndexArray[f + 2]];
-        let isCollar = true;
-        let isPlacket = true;
-        for (const id of ids) {
-          posAccessor.getElement(id, point);
-          const [x, y, z] = point;
-          if (!(y > collarY && Math.hypot(x, z) < collarRadius)) isCollar = false;
-          if (
-            !(
-              Math.abs(x) < placketHalfWidth &&
-              z > placketFrontZ &&
-              y > placketBottomY &&
-              y <= collarY
-            )
-          ) {
-            isPlacket = false;
-          }
-        }
-        if (isCollar) collarIndices.push(...ids);
-        else if (isPlacket) placketIndices.push(...ids);
-        else fabricIndices.push(...ids);
-      }
-
-      const makeIndices = (name, values) =>
-        document.createAccessor(name).setType("SCALAR").setArray(new Uint32Array(values));
-
-      mainPrim.setIndices(makeIndices("FabricIndices", fabricIndices));
-
-      const addTrim = (name, indices) => {
-        if (indices.length === 0) return;
-        const material = document
-          .createMaterial(name)
-          .setBaseColorFactor([1, 1, 1, 1])
-          .setRoughnessFactor(0.78)
-          .setMetallicFactor(0.06);
-        const primitive = document
-          .createPrimitive()
-          .setMode(mainPrim.getMode())
-          .setIndices(makeIndices(`${name}Indices`, indices))
-          .setMaterial(material);
-        for (const semantic of mainPrim.listSemantics()) {
-          primitive.setAttribute(semantic, mainPrim.getAttribute(semantic));
-        }
-        sourceNode.addChild(
-          document.createNode(name).setMesh(document.createMesh(name).addPrimitive(primitive)),
-        );
-        console.log(`${name.toLowerCase()} split: ${indices.length / 3} triangles → ${name}`);
-      };
-
-      addTrim("CollarTrim", collarIndices);
-      addTrim("PlacketTrim", placketIndices);
-    }
-  }
+  // Collar and placket stay inside MainJersey and use the design texture.
+  // No solid accent colour is applied to those areas.
 
   // Split the single mesh into the three named objects used by the runtime contract.
   sourceNode.setName("JerseyTemplate");
