@@ -312,7 +312,7 @@ export default function DesignShowcase() {
                 <div className="ds-contract">
                   <span>MAINJERSEY ← design texture</span>
                   <span>ENDSLEEVES ← accent colour</span>
-                  <span>COLLARTRIM ← accent colour</span>
+                  <span>COLLARTRIM + PLACKETTRIM ← accent colour</span>
                   <span>ONE CANVAS ← all designs</span>
                 </div>
               </>
