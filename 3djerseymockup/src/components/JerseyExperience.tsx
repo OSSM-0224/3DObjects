@@ -14,7 +14,7 @@ import { clamp, createSpinState } from "../lib/spin";
 type SpinDirection = "left" | "right" | "up" | "down";
 
 const KIT_COUNT = KITS.length.toString().padStart(2, "0");
-const SHARE_KIT_ID: KitId = "slhs";
+export const SHARE_KIT_ID: KitId = "slhs";
 
 function getInitialKit(): Kit {
   const requested = new URLSearchParams(window.location.search).get("kit");
@@ -60,7 +60,7 @@ const SpinIcon = () => (
   </svg>
 );
 
-const ShareIcon = () => (
+export const ShareIcon = () => (
   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
     <path
       d="M8 10.2V2.6m0 0L5.4 5.2M8 2.6l2.6 2.6M3 8.4v4.1c0 .5.4.9.9.9h8.2c.5 0 .9-.4.9-.9V8.4"
@@ -125,7 +125,7 @@ function StageProgress({ name }: { name: string }) {
   );
 }
 
-function ShareModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function ShareModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -395,7 +395,7 @@ function Experience() {
     spin.current.pointerY = 0;
   };
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     const step = 0.16;
     const directions: Partial<Record<string, SpinDirection>> = {
       ArrowLeft: "left",

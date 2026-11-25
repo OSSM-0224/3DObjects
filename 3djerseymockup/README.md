@@ -43,6 +43,35 @@ npm run dev
 
 `npm run export:yash` needs Blender 5.x on `PATH` (or point it at `blender.exe` directly). The other commands only need Node.
 
+## Design showcase — one template, many designs
+
+Open `/?mode=designs` for the scalable design viewer. The default 3-kit experience at `/` is unchanged.
+
+Instead of baking every design into its own GLB, the showcase uses **one** `public/models/jersey-template.glb` and swaps the artwork at runtime:
+
+- `MainJersey` → `JerseyFabric` material receives the active design texture.
+- `EndSleeves` → `SleeveTrim` material receives the design's accent colour.
+- `CollarTrim` → solid material split out of the textured mesh, also receives the design's accent colour (no more black collar).
+- `JerseyButtons` keeps its own solid material.
+
+Build the template, UV guide and demo designs (no Blender required):
+
+```bash
+npm run build:template
+```
+
+That script reads `public/models/jersey-yash24.glb`, splits its three material primitives into the named meshes above, adds a checker placeholder texture, and writes:
+
+| Output | Purpose |
+| --- | --- |
+| `public/models/jersey-template.glb` | the single reusable template |
+| `public/templates/jersey-uv-guide.png` | real UV islands over the design canvas, with bleed/safe-area guides |
+| `public/designs/<category>/<id>.webp` | 1400px full design textures |
+| `public/designs/<category>/<id>-thumb.webp` | 360px lazy grid thumbnails |
+| `public/designs/manifest.json` | design metadata consumed by the viewer |
+
+**Adding a design:** drop a UV-aligned WebP plus its thumbnail into `public/designs/<category>/` and add one entry to `public/designs/manifest.json`. No Blender, no new GLB. The grid paginates at 24 designs per page and only the active texture (plus immediate neighbours) is ever loaded into WebGL.
+
 ## Model pipeline
 
 The untouched source assets live in `models/` and are never loaded by the site.
@@ -80,7 +109,13 @@ src/components/JerseyScene.tsx       Canvas, responsive camera rig, studio light
 src/components/Jersey.tsx            GLTF loading, material tuning, animation loop
 src/lib/kits.ts                      all kit definitions: model, framing, copy, specs, switcher metadata
 src/lib/spin.ts                      shared rotation types and state factory
+src/lib/designs.ts                   design manifest loader and JerseyDesign type
+src/lib/designTextures.ts            small texture cache, neighbour preload, disposal
+src/components/TemplateJersey.tsx    one GLB, cloned materials, runtime texture + accent swap
+src/components/DesignShowcase.tsx    single WebGL viewer + lazy, paginated design grid
+src/design-showcase.css              showcase-only visual system
 src/App.css                          visual system, kit rail, responsive rules, reduced-motion overrides
+scripts/build-jersey-template.mjs    Blender-free template, UV guide and demo design builder
 scripts/export-yash-draped.py          Blender bake: frame 50 of the cloth cache, normalized and textured
 scripts/optimize-yash-draped.mjs       YASH 24 texture + Meshopt asset pipeline
 scripts/optimize-ganpati.mjs           Ganpati stitching removal + texture + Meshopt pipeline

@@ -17,6 +17,8 @@ type ExperienceProps = {
   spin: RefObject<SpinState>;
   onLoaded: () => void;
   reducedMotion: boolean;
+  /** Used by the screenshot/capture route; the scene itself is unchanged. */
+  capture?: boolean;
 };
 
 type SceneProps = ExperienceProps & {

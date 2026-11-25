@@ -12,7 +12,8 @@
     "optimize:yash": "node scripts/optimize-yash-draped.mjs",
     "optimize:ganpati": "node scripts/optimize-ganpati.mjs",
     "optimize:slhs": "node scripts/optimize-slhs.mjs",
-    "optimize:all": "npm run optimize:yash && npm run optimize:ganpati && npm run optimize:slhs"
+    "optimize:all": "npm run optimize:yash && npm run optimize:ganpati && npm run optimize:slhs",
+    "build:template": "node scripts/build-jersey-template.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",
