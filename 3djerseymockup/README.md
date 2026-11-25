@@ -70,7 +70,7 @@ That script reads `public/models/jersey-yash24.glb`, splits its three material p
 | `public/designs/<category>/<id>-thumb.webp` | 360px lazy grid thumbnails |
 | `public/designs/manifest.json` | design metadata consumed by the viewer |
 
-**Adding a design:** drop a UV-aligned WebP plus its thumbnail into `public/designs/<category>/` and add one entry to `public/designs/manifest.json`. No Blender, no new GLB. The grid paginates at 24 designs per page and only the active texture (plus immediate neighbours) is ever loaded into WebGL.
+**Adding a design:** put the artwork (PNG/WebP, ideally 2048×1957 to match the UV guide) in `public/designs/source/`, add an entry to `public/designs/custom.json`, then run `npm run build:template`. The script converts it to a canvas-aligned 1400×1338 WebP plus a 360×360 thumbnail and rebuilds the manifest, so hand-added designs survive future template builds. No Blender, no new GLB. The grid paginates at 24 designs per page and only the active texture (plus immediate neighbours) is ever loaded into WebGL.
 
 ## Model pipeline
 

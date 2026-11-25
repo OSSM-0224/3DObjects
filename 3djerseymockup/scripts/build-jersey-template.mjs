@@ -26,8 +26,10 @@ const OUT_MODEL = path.join(ROOT, "public/models/jersey-template.glb");
 const OUT_GUIDE = path.join(ROOT, "public/templates/jersey-uv-guide.png");
 const DESIGN_ROOT = path.join(ROOT, "public/designs");
 const MANIFEST = path.join(DESIGN_ROOT, "manifest.json");
+const CUSTOM_CONFIG = path.join(DESIGN_ROOT, "custom.json");
 
 const GUIDE_SIZE = 2048;
+const CANVAS_HEIGHT = 1957;
 const FULL_SIZE = 1400;
 const THUMB_SIZE = 360;
 const MAX_GUIDE_DOTS = 12000;
@@ -86,6 +88,36 @@ async function writeWebpPair(buffer, designId, category) {
   const thumb = await sharp(buffer)
     .rotate()
     .resize(THUMB_SIZE, THUMB_SIZE, { fit: "fill" })
+    .webp({ quality: 78 })
+    .toBuffer();
+
+  await fs.writeFile(path.join(folder, `${designId}.webp`), full);
+  await fs.writeFile(path.join(folder, `${designId}-thumb.webp`), thumb);
+
+  return {
+    image: `/designs/${category}/${designId}.webp`,
+    thumb: `/designs/${category}/${designId}-thumb.webp`,
+  };
+}
+
+/**
+ * Custom artwork is authored on the UV guide canvas (2048x1957). Use `cover`
+ * so a square source is cropped by ~4% instead of stretched — UVs map the
+ * whole image, so a stretched design would land off the collar and placket.
+ */
+async function writeCanvasPair(buffer, designId, category) {
+  const folder = path.join(DESIGN_ROOT, category);
+  await fs.mkdir(folder, { recursive: true });
+  const fullHeight = Math.round((FULL_SIZE * CANVAS_HEIGHT) / GUIDE_SIZE);
+
+  const full = await sharp(buffer)
+    .rotate()
+    .resize(FULL_SIZE, fullHeight, { fit: "cover" })
+    .webp({ quality: 88 })
+    .toBuffer();
+  const thumb = await sharp(buffer)
+    .rotate()
+    .resize(THUMB_SIZE, THUMB_SIZE, { fit: "cover" })
     .webp({ quality: 78 })
     .toBuffer();
 
@@ -287,6 +319,30 @@ async function main() {
       category: "sports",
       accent: "#8d2438",
       silhouette: "polo",
+      ...files,
+    });
+  }
+
+  // Custom designs are authored by hand. Each entry in custom.json points at
+  // a source image in public/designs/source; the build converts it to the UV
+  // canvas size and appends it, so rebuilds never drop these entries.
+  let custom = { designs: [] };
+  try {
+    custom = JSON.parse(await fs.readFile(CUSTOM_CONFIG, "utf8"));
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+  for (const entry of custom.designs ?? []) {
+    // Config sources use site-relative URLs, e.g. /designs/source/devi1.webp.
+    const sourcePath = path.join(ROOT, "public", String(entry.source ?? "").replace(/^\/+/, ""));
+    const buffer = await fs.readFile(sourcePath);
+    const files = await writeCanvasPair(buffer, entry.id, entry.category);
+    designs.push({
+      id: entry.id,
+      title: entry.title ?? entry.id,
+      category: entry.category,
+      accent: entry.accent ?? "#ff5a24",
+      silhouette: entry.silhouette ?? "oversized",
       ...files,
     });
   }
