@@ -3,7 +3,7 @@
  *
  * Source: public/models/jersey-yash24.glb (one mesh, three material primitives)
  * Output:
- *   public/models/jersey-template.glb        MainJersey + CollarTrim + EndSleeves + JerseyButtons
+ *   public/models/jersey-template.glb        MainJersey + CollarTrim + PlacketTrim + EndSleeves + JerseyButtons
  *   public/templates/jersey-uv-guide.png     real UV islands over the design canvas
  *   public/designs/**                        demo WebP designs + thumbnails
  *   public/designs/manifest.json             runtime design data
