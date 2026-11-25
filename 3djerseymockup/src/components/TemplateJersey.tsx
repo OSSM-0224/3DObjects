@@ -166,17 +166,13 @@ export default function TemplateJersey({
 
     const accent = design.accent || "#ff5a24";
 
-    // Collar and sleeve ends always share the design's accent colour.
-    const trim = trimMaterial.current;
-    if (trim) {
-      trim.color.set(accent);
-      trim.needsUpdate = true;
-    }
-
-    const collar = collarMaterial.current;
-    if (collar) {
-      collar.color.set(accent);
-      collar.needsUpdate = true;
+    // Sleeve ends, the full collar and the front placket always share the
+    // design's accent colour.
+    const accentMaterials = [trimMaterial.current, collarMaterial.current, placketMaterial.current];
+    for (const material of accentMaterials) {
+      if (!material) continue;
+      material.color.set(accent);
+      material.needsUpdate = true;
     }
   }, [texture, design.accent]);
 
