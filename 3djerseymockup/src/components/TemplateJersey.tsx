@@ -80,6 +80,7 @@ export default function TemplateJersey({
   const fabricMaterial = useRef<THREE.MeshStandardMaterial | null>(null);
   const trimMaterial = useRef<THREE.MeshStandardMaterial | null>(null);
   const collarMaterial = useRef<THREE.MeshStandardMaterial | null>(null);
+  const placketMaterial = useRef<THREE.MeshStandardMaterial | null>(null);
   const placeholder = useRef<{ map: THREE.Texture | null; color: THREE.Color } | null>(null);
   const anisotropy = useThree((state) => state.gl.capabilities.getMaxAnisotropy());
 
@@ -118,12 +119,14 @@ export default function TemplateJersey({
       : null;
     trimMaterial.current = findMaterial(scene, ["EndSleeves"], ["SleeveTrim", "Sleeve End Colour"]);
     collarMaterial.current = findMaterial(scene, ["CollarTrim"], ["CollarTrim"]);
+    placketMaterial.current = findMaterial(scene, ["PlacketTrim"], ["PlacketTrim"]);
 
     return () => {
       for (const material of owned) material.dispose();
       fabricMaterial.current = null;
       trimMaterial.current = null;
       collarMaterial.current = null;
+      placketMaterial.current = null;
       placeholder.current = null;
     };
   }, [scene]);

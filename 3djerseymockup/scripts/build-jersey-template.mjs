@@ -194,11 +194,11 @@ async function main() {
     ? Buffer.from(fabricMaterial.getBaseColorTexture().getImage())
     : null;
 
-  // The collar is part of the textured Main Design primitive, and its UVs land
-  // on a solid black patch of the artwork. Pull those triangles into their own
-  // solid-colour mesh so the runtime can match them to the sleeve accent.
-  // Everything above y=0.85 inside radius 0.35 is the neck/collar ring; the
-  // shoulders stop at radius 0.35 just below it, so this is a clean separation.
+  // The collar and the front placket are part of the textured Main Design
+  // primitive, and their UVs land on dark patches of the artwork. Pull those
+  // triangles into solid-colour meshes so the runtime can match them to the
+  // sleeve accent. Selection is geometric, so it works on the one shared GLB
+  // for every design, with no Blender step.
   const posAccessor = mainPrim.getAttribute("POSITION");
   if (posAccessor) {
     const point = [0, 0, 0];
@@ -207,56 +207,79 @@ async function main() {
       posAccessor.getElement(i, point);
       maxY = Math.max(maxY, point[1]);
     }
-    const collarY = maxY - 0.15;
-    const collarRadius = 0.35;
+
+    // The neck ring ends at maxY - 0.15, but the visible folded collar flap
+    // reaches down to about maxY - 0.25 and out to radius 0.5.
+    const collarY = maxY - 0.25;
+    const collarRadius = 0.5;
+
+    // The placket is the narrow centre-front strip below the collar. z > 0.15
+    // keeps the back seam untouched; y <= collarY avoids doubling up with the
+    // collar flap at the top.
+    const placketBottomY = 0.2;
+    const placketHalfWidth = 0.08;
+    const placketFrontZ = 0.15;
     const originalIndices = mainPrim.getIndices();
 
     if (originalIndices) {
       const fabricIndices = [];
       const collarIndices = [];
+      const placketIndices = [];
       // getArray() gives independent scalar values; getElement(index, target)
       // returns the shared target array, which would alias all three indices.
       const originalIndexArray = originalIndices.getArray();
       for (let f = 0; f < originalIndices.getCount(); f += 3) {
         const ids = [originalIndexArray[f], originalIndexArray[f + 1], originalIndexArray[f + 2]];
         let isCollar = true;
+        let isPlacket = true;
         for (const id of ids) {
           posAccessor.getElement(id, point);
-          if (!(point[1] > collarY && Math.hypot(point[0], point[2]) < collarRadius)) {
-            isCollar = false;
-            break;
+          const [x, y, z] = point;
+          if (!(y > collarY && Math.hypot(x, z) < collarRadius)) isCollar = false;
+          if (
+            !(
+              Math.abs(x) < placketHalfWidth &&
+              z > placketFrontZ &&
+              y > placketBottomY &&
+              y <= collarY
+            )
+          ) {
+            isPlacket = false;
           }
         }
-        (isCollar ? collarIndices : fabricIndices).push(...ids);
+        if (isCollar) collarIndices.push(...ids);
+        else if (isPlacket) placketIndices.push(...ids);
+        else fabricIndices.push(...ids);
       }
 
-      if (collarIndices.length > 0) {
-        const makeIndices = (name, values) =>
-          document.createAccessor(name).setType("SCALAR").setArray(new Uint32Array(values));
+      const makeIndices = (name, values) =>
+        document.createAccessor(name).setType("SCALAR").setArray(new Uint32Array(values));
 
-        mainPrim.setIndices(makeIndices("FabricIndices", fabricIndices));
+      mainPrim.setIndices(makeIndices("FabricIndices", fabricIndices));
 
-        const collarMaterial = document
-          .createMaterial("CollarTrim")
+      const addTrim = (name, indices) => {
+        if (indices.length === 0) return;
+        const material = document
+          .createMaterial(name)
           .setBaseColorFactor([1, 1, 1, 1])
           .setRoughnessFactor(0.78)
           .setMetallicFactor(0.06);
-        const collarPrimitive = document
+        const primitive = document
           .createPrimitive()
           .setMode(mainPrim.getMode())
-          .setIndices(makeIndices("CollarIndices", collarIndices))
-          .setMaterial(collarMaterial);
+          .setIndices(makeIndices(`${name}Indices`, indices))
+          .setMaterial(material);
         for (const semantic of mainPrim.listSemantics()) {
-          collarPrimitive.setAttribute(semantic, mainPrim.getAttribute(semantic));
+          primitive.setAttribute(semantic, mainPrim.getAttribute(semantic));
         }
         sourceNode.addChild(
-          document
-            .createNode("CollarTrim")
-            .setMesh(document.createMesh("CollarTrim").addPrimitive(collarPrimitive)),
+          document.createNode(name).setMesh(document.createMesh(name).addPrimitive(primitive)),
         );
+        console.log(`${name.toLowerCase()} split: ${indices.length / 3} triangles → ${name}`);
+      };
 
-        console.log(`collar split: ${collarIndices.length / 3} triangles → CollarTrim`);
-      }
+      addTrim("CollarTrim", collarIndices);
+      addTrim("PlacketTrim", placketIndices);
     }
   }
 
